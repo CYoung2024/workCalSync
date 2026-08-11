@@ -72,7 +72,11 @@ def get_ics_attachments(msg):
 
 
 def find_calendar(client, name):
-    principal = client.principal()
+    # Fastmail's server doesn't answer the current-user-principal discovery
+    # PROPFIND that client.principal() tries by default, so point it at the
+    # known principal URL directly instead.
+    principal_url = f"https://caldav.fastmail.com/dav/principals/user/{FASTMAIL_EMAIL}/"
+    principal = client.principal(url=principal_url)
     calendars = principal.calendars()
     if not calendars:
         raise RuntimeError("No calendars found on this Fastmail account.")
