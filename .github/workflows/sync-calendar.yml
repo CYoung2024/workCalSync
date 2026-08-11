@@ -1,0 +1,29 @@
+name: Sync Fastmail calendar from email
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub may delay this during high load; that's fine here.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install icalendar caldav
+
+      - name: Run sync
+        env:
+          FASTMAIL_EMAIL: ${{ secrets.FASTMAIL_EMAIL }}
+          FASTMAIL_APP_PASSWORD: ${{ secrets.FASTMAIL_APP_PASSWORD }}
+          # Optional overrides — uncomment and edit as needed:
+          # IMAP_SUBJECT_FILTER: "WorkCalendarExport"
+          # CALENDAR_NAME: "Work"
+        run: python sync_calendar.py
