@@ -24,7 +24,7 @@ Optional environment variables:
   IMAP_SUBJECT_FILTER     Only process mail with this subject (default: "WorkCalendarExport")
   CALENDAR_NAME           Name of the target Fastmail calendar (default: first/primary calendar)
   IMAP_HOST               Default: imap.fastmail.com
-  CALDAV_URL              Default: https://caldav.fastmail.com/
+  CALDAV_URL              Default: https://caldav.fastmail.com/dav/ (trailing slash matters)
 """
 
 import email
@@ -37,7 +37,7 @@ import caldav
 from icalendar import Calendar as ICalCalendar
 
 IMAP_HOST = os.environ.get("IMAP_HOST", "imap.fastmail.com")
-CALDAV_URL = os.environ.get("CALDAV_URL", "https://caldav.fastmail.com/")
+CALDAV_URL = os.environ.get("CALDAV_URL", "https://caldav.fastmail.com/dav/")
 SUBJECT_FILTER = os.environ.get("IMAP_SUBJECT_FILTER", "WorkCalendarExport")
 CALENDAR_NAME = os.environ.get("CALENDAR_NAME")  # None = use first calendar found
 
