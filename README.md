@@ -72,12 +72,5 @@ If something doesn't work, see **[Troubleshooting](docs/troubleshooting.md)**.
   employer's policy before you set it up. Your work tenant must allow flows to
   email external addresses; some tenants block this with
   data loss prevention (DLP) policies, and the flow will fail if yours does.
-- **Special characters in titles/locations are handled on the sync side.**
-  The flow writes event titles and locations into the `.ics` file as they
-  are, without the escaping iCalendar requires for commas, semicolons,
-  backslashes and line breaks. `sync_calendar.py` repairs and escapes this
-  before parsing (see `sanitize_ics_text()`), so it's corrected before it
-  reaches Fastmail. This assumes the flow keeps sending unescaped text; if
-  you ever change the flow to escape these fields itself, remove that step.
 - Use a **dedicated Fastmail calendar** (for example, one called "Work") so
   synced events stay separate from your personal ones.

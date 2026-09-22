@@ -128,13 +128,6 @@ This builds one `VEVENT` block per calendar event:
 | `TRANSP` | `TRANSPARENT` when shown as *Free*, otherwise `OPAQUE` |
 | `STATUS` | `TENTATIVE` when shown as *Tentative*, otherwise `CONFIRMED` |
 
-> [!NOTE]
-> `SUMMARY` and `LOCATION` are written as they are here, without the
-> escaping iCalendar requires for commas, semicolons, backslashes and line
-> breaks. That's corrected on the other end instead: `sync_calendar.py`
-> repairs and re-escapes this text before it reaches Fastmail (see
-> `sanitize_ics_text()` in the script).
-
 ### 4b. Append to array variable (inside the loop, after Compose)
 
 Add **Variables → Append to array variable**.
