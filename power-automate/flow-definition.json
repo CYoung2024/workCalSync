@@ -1,0 +1,114 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "Recurrence": {
+        "type": "Recurrence",
+        "recurrence": {
+          "frequency": "Hour",
+          "interval": 6,
+          "startTime": "2026-07-31T10:00:00.000Z",
+          "timeZone": "Eastern Standard Time"
+        }
+      }
+    },
+    "actions": {
+      "Get_calendar_view_of_events_(V3)": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "parameters": {
+            "calendarId": "Redacted= (pick 'Calendar' from the dropdown; the ID is unique to each mailbox)",
+            "startDateTimeUtc": "@formatDateTime(utcNow(), 'yyyy-MM-ddTHH:mm:ssZ')",
+            "endDateTimeUtc": "@formatDateTime(addDays(utcNow(), 90), 'yyyy-MM-ddTHH:mm:ssZ')"
+          },
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+            "connection": "shared_office365",
+            "operationId": "GetEventsCalendarViewV3"
+          }
+        },
+        "runAfter": {}
+      },
+      "Initialize_variable": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "VEventList",
+              "type": "array"
+            }
+          ]
+        },
+        "runAfter": {
+          "Get_calendar_view_of_events_(V3)": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Apply_to_each_1": {
+        "type": "Foreach",
+        "foreach": "@outputs('Get_calendar_view_of_events_(V3)')?['body/value']",
+        "actions": {
+          "Compose": {
+            "type": "Compose",
+            "inputs": "@concat(\r\n'BEGIN:VEVENT\r\nUID:', items('Apply_to_each_1')?['iCalUId'], '\r\nDTSTAMP:', formatDateTime(utcNow(), 'yyyyMMddTHHmmss'), 'Z\r\n',\r\nif(\r\n  equals(items('Apply_to_each_1')?['isAllDay'], true),\r\n  concat(\r\n    'DTSTART;VALUE=DATE:', formatDateTime(items('Apply_to_each_1')?['start'], 'yyyyMMdd'), '\r\nDTEND;VALUE=DATE:', formatDateTime(items('Apply_to_each_1')?['end'], 'yyyyMMdd'), '\r\n'\r\n  ),\r\n  concat(\r\n    'DTSTART:', formatDateTime(items('Apply_to_each_1')?['start'], 'yyyyMMddTHHmmss'), 'Z\r\nDTEND:', formatDateTime(items('Apply_to_each_1')?['end'], 'yyyyMMddTHHmmss'), 'Z\r\n'\r\n  )\r\n),\r\n'SUMMARY:', items('Apply_to_each_1')?['subject'], '\r\nLOCATION:', items('Apply_to_each_1')?['location'], '\r\nTRANSP:', if(equals(items('Apply_to_each_1')?['showAs'], 'free'), 'TRANSPARENT', 'OPAQUE'), '\r\nSTATUS:', if(equals(items('Apply_to_each_1')?['showAs'], 'tentative'), 'TENTATIVE', 'CONFIRMED'), '\r\nEND:VEVENT\r\n'\r\n)"
+          },
+          "Append_to_array_variable": {
+            "type": "AppendToArrayVariable",
+            "inputs": {
+              "name": "VEventList",
+              "value": "@outputs('Compose')"
+            },
+            "runAfter": {
+              "Compose": [
+                "Succeeded"
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "Initialize_variable": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Compose_1": {
+        "type": "Compose",
+        "inputs": "@concat(\r\n'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Charles//WorkCalendarExport//EN\r\nMETHOD:PUBLISH\r\n',\r\njoin(variables('VEventList'), ''),\r\n'END:VCALENDAR'\r\n)",
+        "runAfter": {
+          "Apply_to_each_1": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Send_an_email_(V2)": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "parameters": {
+            "emailMessage/To": "mail@charles-young.com",
+            "emailMessage/Subject": "WorkCalendarExport",
+            "emailMessage/Body": "<p class=\"editor-paragraph\">WorkCalendarExport</p>",
+            "emailMessage/Attachments": [
+              {
+                "Name": "calendar.ics",
+                "ContentBytes": "@base64(outputs('Compose_1'))"
+              }
+            ],
+            "emailMessage/Importance": "Normal"
+          },
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+            "connection": "shared_office365",
+            "operationId": "SendEmailV2"
+          }
+        },
+        "runAfter": {
+          "Compose_1": [
+            "Succeeded"
+          ]
+        }
+      }
+    }
+  }
+}
