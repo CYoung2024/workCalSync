@@ -4,7 +4,7 @@ Mirror a work Outlook / Microsoft 365 calendar into a personal Fastmail
 calendar, without any admin access or third-party sync service.
 
 ```
-┌──────────────────────┐ Sundays, and  ┌───────────────┐   every 2 hours  ┌────────────────────┐
+┌──────────────────────┐ Sundays, and  ┌───────────────┐  every 15 min    ┌────────────────────┐
 │ Power Automate flows │ on each change│ Fastmail inbox│ ◀── IMAP ─────── │ GitHub Actions     │
 │ (work M365 account)  │ ── email ───▶ │               │                  │ sync_calendar.py   │
 └──────────────────────┘  calendar.ics └───────────────┘                  └─────────┬──────────┘
@@ -22,13 +22,13 @@ calendar, without any admin access or third-party sync service.
    - the **change flow** sends just the affected event whenever your calendar
      changes: an invite arrives, you accept or decline, a meeting is moved or
      edited, or an event is deleted (subject `WorkCalendarChange`).
-2. **GitHub Actions** runs `sync_calendar.py` every 2 hours. It logs in to
+2. **GitHub Actions** runs `sync_calendar.py` every 15 minutes. It logs in to
    Fastmail over IMAP, picks up any unread emails from either flow, and writes
    the events into a Fastmail calendar over CalDAV, matching on each event's
    `UID`. It updates existing events in place and deletes events that are
    gone from Outlook.
-3. The email is marked read only after a successful sync, so a failed run is
-   retried automatically next time.
+3. After a successful sync the email is moved to Trash. If the sync fails, the
+   email stays unread in the Inbox and is retried next time.
 
 ## What you need
 
@@ -70,8 +70,12 @@ If something doesn't work, see **[Troubleshooting](docs/troubleshooting.md)**.
 
 - **Only future events are synced** (now → 90 days out). Past events already
   in Fastmail are left alone, and never deleted.
-- **Changes take up to 2 hours** to reach Fastmail, since that's how often the
-  GitHub Action checks for new emails.
+- **Changes take up to about 15 minutes** to reach Fastmail, plus however
+  long Power Automate takes to notice the change.
+- **Private repos need a slower schedule.** Every 15 minutes is free on a
+  public repo, but on a private one it uses more than the free plan's 2,000
+  Actions minutes a month. See
+  [Changing the schedule](docs/3-fastmail-and-github.md#changing-the-schedule).
 - **The sync only deletes events it created.** It marks them with an
   `X-WORKCAL-ID` property, so anything you add to the calendar by hand is
   left alone.

@@ -18,7 +18,8 @@ How it works:
                                  named by X-WORKCAL-SCOPE-ID
      Synced events in that scope that aren't in the attachment are deleted.
      Only events carrying X-WORKCAL-ID (i.e. written by this sync) are touched.
-  6. Mark the source email as read (\\Seen) so it isn't reprocessed next run.
+  6. Move the source email to Trash (or, with DELETE_PROCESSED_EMAILS=false,
+     just mark it read) so it isn't reprocessed next run.
 
 Calendar writes use CalDAV because Fastmail has not yet opened up JMAP access
 for calendars (JMAP mail/contacts are available, but calendar access is
@@ -33,6 +34,9 @@ Optional environment variables:
   IMAP_SUBJECT_FILTER     Only process mail whose subject contains this (default: "WorkCalendar",
                            which matches both "WorkCalendarExport" and "WorkCalendarChange")
   CALENDAR_NAME           Name of the target Fastmail calendar (default: first/primary calendar)
+  DELETE_PROCESSED_EMAILS Move synced emails to Trash (default: "true"). Set to "false"
+                           to leave them in the Inbox, marked read.
+  TRASH_FOLDER            Default: Trash
   IMAP_HOST               Default: imap.fastmail.com
   CALDAV_URL              Default: https://caldav.fastmail.com/dav/ (trailing slash matters)
 """
@@ -51,6 +55,8 @@ IMAP_HOST = os.environ.get("IMAP_HOST", "imap.fastmail.com")
 CALDAV_URL = os.environ.get("CALDAV_URL", "https://caldav.fastmail.com/dav/")
 SUBJECT_FILTER = os.environ.get("IMAP_SUBJECT_FILTER", "WorkCalendar")
 CALENDAR_NAME = os.environ.get("CALENDAR_NAME")  # None = use first calendar found
+DELETE_PROCESSED_EMAILS = os.environ.get("DELETE_PROCESSED_EMAILS", "true").lower() != "false"
+TRASH_FOLDER = os.environ.get("TRASH_FOLDER", "Trash")
 
 FASTMAIL_EMAIL = os.environ["FASTMAIL_EMAIL"]
 FASTMAIL_APP_PASSWORD = os.environ["FASTMAIL_APP_PASSWORD"]
@@ -329,7 +335,17 @@ def main():
 
         log(f"  synced {event_count} event(s), deleted {deleted_count}")
         imap.store(msg_id, "+FLAGS", "\\Seen")
+        if DELETE_PROCESSED_EMAILS:
+            status, _ = imap.copy(msg_id, TRASH_FOLDER)
+            if status == "OK":
+                imap.store(msg_id, "+FLAGS", "\\Deleted")
+            else:
+                log(f"  couldn't copy message to '{TRASH_FOLDER}'; leaving it in the Inbox")
 
+    # Expunge once at the end: expunging mid-loop would renumber the
+    # remaining message sequence numbers.
+    if DELETE_PROCESSED_EMAILS:
+        imap.expunge()
     imap.logout()
 
 

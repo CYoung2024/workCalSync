@@ -42,7 +42,8 @@
 : The workflow found no **unread** email in the **Inbox** whose subject
   contains `WorkCalendar`. Check that:
   - the email arrived and hasn't been opened. Mark it unread and run the
-    workflow again.
+    workflow again. Emails that already synced are moved to **Trash**; move
+    one back to the Inbox and mark it unread to sync it again.
   - a Fastmail rule or filter isn't moving it out of the Inbox or into spam.
   - both flows' subjects contain `IMAP_SUBJECT_FILTER`.
 

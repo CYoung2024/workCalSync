@@ -15,8 +15,9 @@ Each run it:
    event's Outlook ID for a change email. It only ever deletes events the
    sync itself created. Events you add to the calendar by hand are never
    touched.
-5. Marks the email as read, but only if everything succeeded. If anything
-   failed, the email stays unread and is retried on the next run.
+5. Moves the email to **Trash**, but only if everything succeeded. If
+   anything failed, the email stays unread in the Inbox and is retried on
+   the next run.
 
 ## 1. Create a Fastmail app password
 
@@ -46,9 +47,15 @@ Click **Fork** at the top of this repo.
 Your fork is public, like this repo. Your secrets stay private, but anyone
 can read your Actions run logs, and those list your event titles. If you'd
 rather keep them hidden, go to <https://github.com/new/import> instead, paste
-this repo's URL, and choose **Private**. The 2-hour schedule (about 360 runs
-a month) fits within the free plan's 2,000 Actions minutes a month for
-private repos.
+this repo's URL, and choose **Private**.
+
+> [!IMPORTANT]
+> **Private repos: lengthen the schedule.** The workflow runs every 15
+> minutes, about 2,900 runs a month. Public repos get unlimited Actions
+> minutes, but private repos on the free plan get 2,000 a month, and every
+> run counts as at least 1 minute. On a private repo, change the schedule to
+> hourly (about 720 runs) as shown in
+> [Changing the schedule](#changing-the-schedule).
 
 ## 4. Add the secrets
 
@@ -88,6 +95,8 @@ All settings:
 | `FASTMAIL_APP_PASSWORD` | *(required)* | App password with Mail + CalDAV access |
 | `CALENDAR_NAME` | first calendar | Name of the Fastmail calendar to write to (exact match) |
 | `IMAP_SUBJECT_FILTER` | `WorkCalendar` | Only process emails whose subject contains this. Must be part of both flows' email subjects. |
+| `DELETE_PROCESSED_EMAILS` | `true` | Move synced emails to Trash. Set to `"false"` to keep them in the Inbox, marked read. |
+| `TRASH_FOLDER` | `Trash` | Folder synced emails are moved to |
 | `IMAP_HOST` | `imap.fastmail.com` | IMAP server |
 | `CALDAV_URL` | `https://caldav.fastmail.com/dav/` | CalDAV server (keep the trailing slash) |
 
@@ -110,7 +119,8 @@ All settings:
 4. Check your Fastmail calendar.
 
 After that, each change in Outlook reaches Fastmail at the workflow's next run
-(within 2 hours), and the Sunday snapshot corrects anything that was missed.
+(within about 15 minutes), and the Sunday snapshot corrects anything that was
+missed.
 
 ## Changing the schedule
 
@@ -118,8 +128,8 @@ The schedule is the `cron` line in `.github/workflows/sync-calendar.yml` and
 uses **UTC**:
 
 ```yaml
-    - cron: "0 */2 * * *"    # every 2 hours (default)
-    - cron: "0 * * * *"      # every hour
+    - cron: "*/15 * * * *"   # every 15 minutes (default; public repos only)
+    - cron: "0 * * * *"      # every hour: use this on a private repo
 ```
 
 GitHub sometimes starts scheduled runs several minutes late. That's fine for
