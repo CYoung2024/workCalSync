@@ -55,7 +55,6 @@ If something doesn't work, see **[Troubleshooting](docs/troubleshooting.md)**.
 | Path | What it is |
 | --- | --- |
 | `sync_calendar.py` | The sync script (IMAP → parse `.ics` → CalDAV upsert). |
-| `requirements.txt` | Python dependencies (`caldav`, `icalendar`). |
 | `.github/workflows/sync-calendar.yml` | Scheduled GitHub Actions workflow that runs the script. |
 | `power-automate/expressions/` | Copy-paste-ready expressions for each flow step. |
 | `power-automate/flow-definition.json` | The complete flow definition, for reference and diffing. |
