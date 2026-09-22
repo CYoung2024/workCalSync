@@ -9,6 +9,9 @@ How it works:
   4. For each VEVENT, look up its UID in the target CalDAV calendar:
        - if found  -> overwrite the existing event (update)
        - if absent -> create a new event
+     TODO: events cancelled or deleted in Outlook are never removed from the
+     Fastmail calendar, because the export only lists events that still exist.
+     Handling this is planned for a separate PR.
   5. Mark the source email as read (\\Seen) so it isn't reprocessed next run.
 
 Calendar writes use CalDAV because Fastmail has not yet opened up JMAP access

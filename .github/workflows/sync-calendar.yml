@@ -2,8 +2,9 @@ name: Sync Fastmail calendar from email
 
 on:
   schedule:
-    # Every 15 minutes. GitHub may delay this during high load; that's fine here.
-    - cron: "*/15 * * * *"
+    # Every 2 hours (UTC). The flow only sends an export every 6 hours, so this
+    # picks each one up within 2 hours. GitHub may delay runs under load; that's fine here.
+    - cron: "0 */2 * * *"
   workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
 
 jobs:
@@ -17,7 +18,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install icalendar caldav
+        run: pip install -r requirements.txt
 
       - name: Run sync
         env:

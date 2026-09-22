@@ -1,0 +1,25 @@
+concat(
+'BEGIN:VEVENT
+UID:', items('Apply_to_each_1')?['iCalUId'], '
+DTSTAMP:', formatDateTime(utcNow(), 'yyyyMMddTHHmmss'), 'Z
+',
+if(
+  equals(items('Apply_to_each_1')?['isAllDay'], true),
+  concat(
+    'DTSTART;VALUE=DATE:', formatDateTime(items('Apply_to_each_1')?['start'], 'yyyyMMdd'), '
+DTEND;VALUE=DATE:', formatDateTime(items('Apply_to_each_1')?['end'], 'yyyyMMdd'), '
+'
+  ),
+  concat(
+    'DTSTART:', formatDateTime(items('Apply_to_each_1')?['start'], 'yyyyMMddTHHmmss'), 'Z
+DTEND:', formatDateTime(items('Apply_to_each_1')?['end'], 'yyyyMMddTHHmmss'), 'Z
+'
+  )
+),
+'SUMMARY:', items('Apply_to_each_1')?['subject'], '
+LOCATION:', items('Apply_to_each_1')?['location'], '
+TRANSP:', if(equals(items('Apply_to_each_1')?['showAs'], 'free'), 'TRANSPARENT', 'OPAQUE'), '
+STATUS:', if(equals(items('Apply_to_each_1')?['showAs'], 'tentative'), 'TENTATIVE', 'CONFIRMED'), '
+END:VEVENT
+'
+)

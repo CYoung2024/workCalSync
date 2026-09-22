@@ -1,0 +1,3 @@
+# Keep the CRLF line endings in the copy-paste expressions: the line breaks
+# inside the quoted strings become the line breaks in the generated .ics file.
+power-automate/expressions/*.txt -text
