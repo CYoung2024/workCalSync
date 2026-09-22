@@ -1,14 +1,21 @@
-# Step 2: Set up Fastmail and GitHub Actions
+# Step 3: Set up Fastmail and GitHub Actions
 
 GitHub Actions runs [`sync_calendar.py`](../sync_calendar.py) on a schedule.
 Each run it:
 
 1. Logs in to Fastmail over IMAP and searches the **Inbox** for **unread**
-   emails whose subject contains `WorkCalendarExport`.
+   emails whose subject contains `WorkCalendar`. This matches both the
+   weekly `WorkCalendarExport` and the per-change `WorkCalendarChange` emails.
+   It processes them oldest first.
 2. Reads every `VEVENT` from each `.ics` attachment.
 3. Looks up each event's `UID` in your Fastmail calendar over CalDAV, then
    **updates** the event if it's already there or **creates** it if it isn't.
-4. Marks the email as read, but only if every event synced. If anything
+4. **Deletes** synced events that the email covers but no longer lists: any
+   in the 90-day window for a weekly snapshot, or those with the changed
+   event's Outlook ID for a change email. It only ever deletes events the
+   sync itself created. Events you add to the calendar by hand are never
+   touched.
+5. Marks the email as read, but only if everything succeeded. If anything
    failed, the email stays unread and is retried on the next run.
 
 ## 1. Create a Fastmail app password
@@ -69,7 +76,7 @@ and uncomment `CALENDAR_NAME`:
         env:
           FASTMAIL_EMAIL: ${{ secrets.FASTMAIL_EMAIL }}
           FASTMAIL_APP_PASSWORD: ${{ secrets.FASTMAIL_APP_PASSWORD }}
-          # IMAP_SUBJECT_FILTER: "WorkCalendarExport"
+          # IMAP_SUBJECT_FILTER: "WorkCalendar"
           CALENDAR_NAME: "Work"
 ```
 
@@ -80,7 +87,7 @@ All settings:
 | `FASTMAIL_EMAIL` | *(required)* | Fastmail login address |
 | `FASTMAIL_APP_PASSWORD` | *(required)* | App password with Mail + CalDAV access |
 | `CALENDAR_NAME` | first calendar | Name of the Fastmail calendar to write to (exact match) |
-| `IMAP_SUBJECT_FILTER` | `WorkCalendarExport` | Only process emails with this subject. Must match the flow's email subject. |
+| `IMAP_SUBJECT_FILTER` | `WorkCalendar` | Only process emails whose subject contains this. Must be part of both flows' email subjects. |
 | `IMAP_HOST` | `imap.fastmail.com` | IMAP server |
 | `CALDAV_URL` | `https://caldav.fastmail.com/dav/` | CalDAV server (keep the trailing slash) |
 
@@ -97,13 +104,13 @@ All settings:
    Processing: WorkCalendarExport
      created: Team standup (040000008200E00074C5B7101A82E008...)
      created: 1:1 with Sam (040000008200E00074C5B7101A82E008...)
-     synced 42 event(s)
+     synced 42 event(s), deleted 0
    ```
 
 4. Check your Fastmail calendar.
 
-After that, the Power Automate flow sends a new export every 6 hours, and the
-workflow picks it up at its next run (within 2 hours).
+After that, each change in Outlook reaches Fastmail at the workflow's next run
+(within 2 hours), and the Sunday snapshot corrects anything that was missed.
 
 ## Changing the schedule
 

@@ -4,24 +4,29 @@ Mirror a work Outlook / Microsoft 365 calendar into a personal Fastmail
 calendar, without any admin access or third-party sync service.
 
 ```
-┌──────────────────────┐   every 6h    ┌───────────────┐   every 2 hours  ┌────────────────────┐
-│ Power Automate flow  │ ── email ───▶ │ Fastmail inbox│ ◀── IMAP ─────── │ GitHub Actions     │
-│ (work M365 account)  │  calendar.ics │               │                  │ sync_calendar.py   │
-└──────────────────────┘               └───────────────┘                  └─────────┬──────────┘
-  reads the next 90 days                                                            │ CalDAV
-  of your work calendar                                                             ▼
+┌──────────────────────┐ Sundays, and  ┌───────────────┐   every 2 hours  ┌────────────────────┐
+│ Power Automate flows │ on each change│ Fastmail inbox│ ◀── IMAP ─────── │ GitHub Actions     │
+│ (work M365 account)  │ ── email ───▶ │               │                  │ sync_calendar.py   │
+└──────────────────────┘  calendar.ics └───────────────┘                  └─────────┬──────────┘
+                                                                                    │ CalDAV
+                                                                                    ▼
                                                                           ┌────────────────────┐
                                                                           │ Fastmail calendar  │
                                                                           └────────────────────┘
 ```
 
-1. **Power Automate** (runs inside your work tenant) reads the next 90 days of
-   your work calendar four times a day, builds a `.ics` file, and emails it to
-   your personal Fastmail address with the subject `WorkCalendarExport`.
+1. Two **Power Automate** flows run inside your work tenant and email `.ics`
+   files to your personal Fastmail address:
+   - the **weekly flow** sends a full snapshot of the next 90 days every
+     Sunday at 6 PM (subject `WorkCalendarExport`).
+   - the **change flow** sends just the affected event whenever your calendar
+     changes: an invite arrives, you accept or decline, a meeting is moved or
+     edited, or an event is deleted (subject `WorkCalendarChange`).
 2. **GitHub Actions** runs `sync_calendar.py` every 2 hours. It logs in to
-   Fastmail over IMAP, picks up any unread `WorkCalendarExport` emails, and
-   writes each event into a Fastmail calendar over CalDAV, matching on the
-   event's `UID`. Existing events are updated in place, so nothing gets duplicated.
+   Fastmail over IMAP, picks up any unread emails from either flow, and writes
+   the events into a Fastmail calendar over CalDAV, matching on each event's
+   `UID`. It updates existing events in place and deletes events that are
+   gone from Outlook.
 3. The email is marked read only after a successful sync, so a failed run is
    retried automatically next time.
 
@@ -41,11 +46,12 @@ The guides and flow files use my own settings (`mail@charles-young.com` and
 
 ## Setup
 
-Takes about 20 minutes. Do the steps in this order:
+Takes about 30 minutes. Do the steps in this order:
 
-1. **[Build the Power Automate flow](docs/1-power-automate.md)**: builds the
-   `.ics` export and emails it to you.
-2. **[Set up Fastmail and GitHub Actions](docs/2-fastmail-and-github.md)**:
+1. **[Build the weekly flow](docs/1-weekly-flow.md)**: the Sunday snapshot.
+2. **[Build the change flow](docs/2-change-flow.md)**: sends each change as
+   it happens.
+3. **[Set up Fastmail and GitHub Actions](docs/3-fastmail-and-github.md)**:
    copy this repo, add two secrets, and run the sync.
 
 If something doesn't work, see **[Troubleshooting](docs/troubleshooting.md)**.
@@ -57,16 +63,18 @@ If something doesn't work, see **[Troubleshooting](docs/troubleshooting.md)**.
 | `sync_calendar.py` | The sync script (IMAP → parse `.ics` → CalDAV upsert). |
 | `.github/workflows/sync-calendar.yml` | Scheduled GitHub Actions workflow that runs the script. |
 | `power-automate/expressions/` | Copy-paste-ready expressions for each flow step. |
-| `power-automate/flow-definition.json` | The complete flow definition, for reference and diffing. |
+| `power-automate/flow-weekly.json`, `flow-changes.json` | The complete flow definitions, for reference and diffing. |
 | `docs/` | Setup guides, troubleshooting, and screenshots. |
 
 ## Things to know before you rely on it
 
-- **TODO (separate PR): cancelled meetings aren't removed.** Edits and time
-  changes in Outlook are carried over, but meetings that are **cancelled or
-  deleted** in Outlook stay in Fastmail. For now, delete them by hand.
-- **Only future events are sent** (now → 90 days out). Past events already in
-  Fastmail are left alone.
+- **Only future events are synced** (now → 90 days out). Past events already
+  in Fastmail are left alone, and never deleted.
+- **Changes take up to 2 hours** to reach Fastmail, since that's how often the
+  GitHub Action checks for new emails.
+- **The sync only deletes events it created.** It marks them with an
+  `X-WORKCAL-ID` property, so anything you add to the calendar by hand is
+  left alone.
 - **Your work calendar data leaves the tenant.** Event titles and locations
   are emailed to a personal address. Check that this is allowed by your
   employer's policy before you set it up. Your work tenant must allow flows to

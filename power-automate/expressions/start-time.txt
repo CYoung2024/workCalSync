@@ -1,1 +1,1 @@
-formatDateTime(utcNow(), 'yyyy-MM-ddTHH:mm:ssZ')
+formatDateTime(outputs('Window_start'), 'yyyy-MM-ddTHH:mm:ssZ')

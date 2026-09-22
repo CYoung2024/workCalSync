@@ -1,1 +1,1 @@
-formatDateTime(addDays(utcNow(), 90), 'yyyy-MM-ddTHH:mm:ssZ')
+formatDateTime(addDays(outputs('Window_start'), 90), 'yyyy-MM-ddTHH:mm:ssZ')

@@ -20,6 +20,8 @@ DTEND:', formatDateTime(items('Apply_to_each_1')?['end'], 'yyyyMMddTHHmmss'), 'Z
 LOCATION:', items('Apply_to_each_1')?['location'], '
 TRANSP:', if(equals(items('Apply_to_each_1')?['showAs'], 'free'), 'TRANSPARENT', 'OPAQUE'), '
 STATUS:', if(equals(items('Apply_to_each_1')?['showAs'], 'tentative'), 'TENTATIVE', 'CONFIRMED'), '
+X-WORKCAL-ID:', items('Apply_to_each_1')?['id'], '
+X-WORKCAL-SERIES-ID:', coalesce(items('Apply_to_each_1')?['seriesMasterId'], ''), '
 END:VEVENT
 '
 )

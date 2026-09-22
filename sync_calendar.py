@@ -11,10 +11,14 @@ How it works:
   4. For each VEVENT, look up its UID in the target CalDAV calendar:
        - if found  -> overwrite the existing event (update)
        - if absent -> create a new event
-     TODO: events cancelled or deleted in Outlook are never removed from the
-     Fastmail calendar, because the export only lists events that still exist.
-     Handling this is planned for a separate PR.
-  5. Mark the source email as read (\\Seen) so it isn't reprocessed next run.
+  5. Delete synced events the attachment says are gone (see delete_stale_events()).
+     Each export declares which events it covers:
+       X-WORKCAL-SCOPE:SNAPSHOT  every event in the window (weekly flow)
+       X-WORKCAL-SCOPE:ID        one event or recurring series (change flow),
+                                 named by X-WORKCAL-SCOPE-ID
+     Synced events in that scope that aren't in the attachment are deleted.
+     Only events carrying X-WORKCAL-ID (i.e. written by this sync) are touched.
+  6. Mark the source email as read (\\Seen) so it isn't reprocessed next run.
 
 Calendar writes use CalDAV because Fastmail has not yet opened up JMAP access
 for calendars (JMAP mail/contacts are available, but calendar access is
@@ -26,7 +30,8 @@ Required environment variables (set these as GitHub Actions secrets):
                            (Settings -> Privacy & Security -> App Passwords)
 
 Optional environment variables:
-  IMAP_SUBJECT_FILTER     Only process mail with this subject (default: "WorkCalendarExport")
+  IMAP_SUBJECT_FILTER     Only process mail whose subject contains this (default: "WorkCalendar",
+                           which matches both "WorkCalendarExport" and "WorkCalendarChange")
   CALENDAR_NAME           Name of the target Fastmail calendar (default: first/primary calendar)
   IMAP_HOST               Default: imap.fastmail.com
   CALDAV_URL              Default: https://caldav.fastmail.com/dav/ (trailing slash matters)
@@ -36,6 +41,7 @@ import email
 import imaplib
 import os
 import sys
+from datetime import date, datetime, timedelta, timezone
 from email.header import decode_header
 
 import caldav
@@ -43,7 +49,7 @@ from icalendar import Calendar as ICalCalendar
 
 IMAP_HOST = os.environ.get("IMAP_HOST", "imap.fastmail.com")
 CALDAV_URL = os.environ.get("CALDAV_URL", "https://caldav.fastmail.com/dav/")
-SUBJECT_FILTER = os.environ.get("IMAP_SUBJECT_FILTER", "WorkCalendarExport")
+SUBJECT_FILTER = os.environ.get("IMAP_SUBJECT_FILTER", "WorkCalendar")
 CALENDAR_NAME = os.environ.get("CALENDAR_NAME")  # None = use first calendar found
 
 FASTMAIL_EMAIL = os.environ["FASTMAIL_EMAIL"]
@@ -93,6 +99,7 @@ _KNOWN_ICS_PREFIXES = (
     "LOCATION:",
     "TRANSP:",
     "STATUS:",
+    "X-WORKCAL-",
 )
 
 # The two fields the flow fills from free-text Outlook data (event subject
@@ -130,7 +137,7 @@ def sanitize_ics_text(text):
 
     NOTE: this assumes the incoming text has no escaping of its own, which
     matches the flow as documented. If the flow is ever changed to escape
-    these fields itself (see docs/1-power-automate.md), this function should
+    these fields itself (see docs/1-weekly-flow.md), this function should
     be removed rather than left in place, or it will double-escape.
     """
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
@@ -209,6 +216,63 @@ def upsert_event(calendar, component):
         log(f"  created: {summary} ({uid})")
 
 
+def _as_utc(value):
+    """Turn an icalendar DTSTART/DTEND value into an aware UTC datetime."""
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
+    return None
+
+
+def _parse_window(cal):
+    start = datetime.strptime(str(cal.get("X-WORKCAL-WINDOW-START")), "%Y%m%dT%H%M%SZ")
+    end = datetime.strptime(str(cal.get("X-WORKCAL-WINDOW-END")), "%Y%m%dT%H%M%SZ")
+    return start.replace(tzinfo=timezone.utc), end.replace(tzinfo=timezone.utc)
+
+
+def delete_stale_events(calendar, cal, kept_uids):
+    """Delete synced events in this export's scope that the export no longer lists.
+
+    Only events that start inside the export's window are considered, minus a
+    one-day margin at the far end, so edge cases around the window boundary
+    are left alone rather than deleted by mistake. The next export catches them.
+    """
+    scope = str(cal.get("X-WORKCAL-SCOPE", "")).upper()
+    if scope not in ("SNAPSHOT", "ID"):
+        return 0  # older export without scope information: add/update only
+    scope_id = str(cal.get("X-WORKCAL-SCOPE-ID", ""))
+    if scope == "ID" and not scope_id:
+        raise RuntimeError("X-WORKCAL-SCOPE:ID export is missing X-WORKCAL-SCOPE-ID")
+
+    window_start, window_end = _parse_window(cal)
+    window_end -= timedelta(days=1)
+
+    deleted = 0
+    for ev in calendar.events():
+        try:
+            comp = ev.icalendar_component
+        except Exception:
+            continue
+        outlook_id = str(comp.get("X-WORKCAL-ID", ""))
+        if not outlook_id:
+            continue  # not written by this sync
+        if str(comp.get("uid")) in kept_uids:
+            continue
+        if scope == "ID" and scope_id not in (outlook_id, str(comp.get("X-WORKCAL-SERIES-ID", ""))):
+            continue
+        dtstart = comp.get("dtstart")
+        start = _as_utc(dtstart.dt) if dtstart is not None else None
+        if start is None or not (window_start <= start < window_end):
+            continue
+        ev.delete()
+        deleted += 1
+        log(f"  deleted: {comp.get('summary', '(no title)')} ({comp.get('uid')})")
+    return deleted
+
+
 def main():
     imap = imaplib.IMAP4_SSL(IMAP_HOST)
     imap.login(FASTMAIL_EMAIL, FASTMAIL_APP_PASSWORD)
@@ -220,7 +284,8 @@ def main():
         log("IMAP search failed.")
         sys.exit(1)
 
-    msg_ids = data[0].split()
+    # Oldest first, so a later change always wins over an earlier one.
+    msg_ids = sorted(data[0].split(), key=int)
     if not msg_ids:
         log("No new matching mail found.")
         imap.logout()
@@ -247,18 +312,22 @@ def main():
         log(f"Processing: {subject}")
 
         event_count = 0
+        deleted_count = 0
         try:
             for ics_bytes in get_ics_attachments(msg):
                 ics_text = sanitize_ics_text(ics_bytes.decode("utf-8", errors="replace"))
                 cal = ICalCalendar.from_ical(ics_text)
+                kept_uids = set()
                 for component in cal.walk("VEVENT"):
                     upsert_event(calendar, component)
+                    kept_uids.add(str(component.get("uid")))
                     event_count += 1
+                deleted_count += delete_stale_events(calendar, cal, kept_uids)
         except Exception as e:
             log(f"  ERROR processing message {msg_id!r}: {e}")
             continue  # leave unread so it's retried next run
 
-        log(f"  synced {event_count} event(s)")
+        log(f"  synced {event_count} event(s), deleted {deleted_count}")
         imap.store(msg_id, "+FLAGS", "\\Seen")
 
     imap.logout()

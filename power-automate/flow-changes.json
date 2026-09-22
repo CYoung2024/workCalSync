@@ -1,0 +1,149 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "When_an_event_is_added,_updated_or_deleted_(V3)": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "parameters": {
+            "table": "Redacted= (pick 'Calendar' from the dropdown)"
+          },
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+            "connection": "shared_office365",
+            "operationId": "CalendarGetOnChangedItemsV3"
+          }
+        },
+        "recurrence": {
+          "frequency": "Minute",
+          "interval": 1
+        },
+        "splitOn": "@triggerOutputs()?['body/value']",
+        "runtimeConfiguration": {
+          "concurrency": {
+            "runs": 1
+          }
+        }
+      }
+    },
+    "actions": {
+      "Window_start": {
+        "type": "Compose",
+        "inputs": "@utcNow()",
+        "runAfter": {}
+      },
+      "Get_calendar_view_of_events_(V3)": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "parameters": {
+            "calendarId": "Redacted= (pick 'Calendar' from the dropdown; the ID is unique to each mailbox)",
+            "startDateTimeUtc": "@formatDateTime(outputs('Window_start'), 'yyyy-MM-ddTHH:mm:ssZ')",
+            "endDateTimeUtc": "@formatDateTime(addDays(outputs('Window_start'), 90), 'yyyy-MM-ddTHH:mm:ssZ')"
+          },
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+            "connection": "shared_office365",
+            "operationId": "GetEventsCalendarViewV3"
+          }
+        },
+        "runAfter": {
+          "Window_start": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Filter_array": {
+        "type": "Query",
+        "inputs": {
+          "from": "@outputs('Get_calendar_view_of_events_(V3)')?['body/value']",
+          "where": "@or(equals(item()?['id'], triggerOutputs()?['body/id']), equals(item()?['seriesMasterId'], triggerOutputs()?['body/id']))"
+        },
+        "runAfter": {
+          "Get_calendar_view_of_events_(V3)": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Initialize_variable": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "VEventList",
+              "type": "array"
+            }
+          ]
+        },
+        "runAfter": {
+          "Filter_array": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Apply_to_each_1": {
+        "type": "Foreach",
+        "foreach": "@body('Filter_array')",
+        "actions": {
+          "Compose": {
+            "type": "Compose",
+            "inputs": "@concat(\r\n'BEGIN:VEVENT\r\nUID:', items('Apply_to_each_1')?['iCalUId'], '\r\nDTSTAMP:', formatDateTime(utcNow(), 'yyyyMMddTHHmmss'), 'Z\r\n',\r\nif(\r\n  equals(items('Apply_to_each_1')?['isAllDay'], true),\r\n  concat(\r\n    'DTSTART;VALUE=DATE:', formatDateTime(items('Apply_to_each_1')?['start'], 'yyyyMMdd'), '\r\nDTEND;VALUE=DATE:', formatDateTime(items('Apply_to_each_1')?['end'], 'yyyyMMdd'), '\r\n'\r\n  ),\r\n  concat(\r\n    'DTSTART:', formatDateTime(items('Apply_to_each_1')?['start'], 'yyyyMMddTHHmmss'), 'Z\r\nDTEND:', formatDateTime(items('Apply_to_each_1')?['end'], 'yyyyMMddTHHmmss'), 'Z\r\n'\r\n  )\r\n),\r\n'SUMMARY:', items('Apply_to_each_1')?['subject'], '\r\nLOCATION:', items('Apply_to_each_1')?['location'], '\r\nTRANSP:', if(equals(items('Apply_to_each_1')?['showAs'], 'free'), 'TRANSPARENT', 'OPAQUE'), '\r\nSTATUS:', if(equals(items('Apply_to_each_1')?['showAs'], 'tentative'), 'TENTATIVE', 'CONFIRMED'), '\r\nX-WORKCAL-ID:', items('Apply_to_each_1')?['id'], '\r\nX-WORKCAL-SERIES-ID:', coalesce(items('Apply_to_each_1')?['seriesMasterId'], ''), '\r\nEND:VEVENT\r\n'\r\n)"
+          },
+          "Append_to_array_variable": {
+            "type": "AppendToArrayVariable",
+            "inputs": {
+              "name": "VEventList",
+              "value": "@outputs('Compose')"
+            },
+            "runAfter": {
+              "Compose": [
+                "Succeeded"
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "Initialize_variable": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Compose_1": {
+        "type": "Compose",
+        "inputs": "@concat(\r\n'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Charles//WorkCalendarExport//EN\r\nMETHOD:PUBLISH\r\nX-WORKCAL-SCOPE:ID\r\nX-WORKCAL-SCOPE-ID:', triggerOutputs()?['body/id'], '\r\n',\r\n'X-WORKCAL-WINDOW-START:', formatDateTime(outputs('Window_start'), 'yyyyMMddTHHmmss'), 'Z\r\nX-WORKCAL-WINDOW-END:', formatDateTime(addDays(outputs('Window_start'), 90), 'yyyyMMddTHHmmss'), 'Z\r\n',\r\njoin(variables('VEventList'), ''),\r\n'END:VCALENDAR'\r\n)",
+        "runAfter": {
+          "Apply_to_each_1": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Send_an_email_(V2)": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "parameters": {
+            "emailMessage/To": "mail@charles-young.com",
+            "emailMessage/Subject": "WorkCalendarChange",
+            "emailMessage/Body": "<p class=\"editor-paragraph\">WorkCalendarChange</p>",
+            "emailMessage/Attachments": [
+              {
+                "Name": "calendar.ics",
+                "ContentBytes": "@base64(outputs('Compose_1'))"
+              }
+            ],
+            "emailMessage/Importance": "Normal"
+          },
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+            "connection": "shared_office365",
+            "operationId": "SendEmailV2"
+          }
+        },
+        "runAfter": {
+          "Compose_1": [
+            "Succeeded"
+          ]
+        }
+      }
+    }
+  }
+}
