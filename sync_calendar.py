@@ -5,7 +5,9 @@ Sync .ics calendar attachments from a Fastmail inbox into a Fastmail calendar.
 How it works:
   1. Connect to Fastmail over IMAP, search for unread mail matching a subject filter.
   2. Pull any .ics / text-calendar attachment from each matching message.
-  3. Parse every VEVENT in the attachment.
+  3. Repair and escape the attachment's text (see sanitize_ics_text()), since
+     the Power Automate flow writes SUMMARY/LOCATION unescaped, then parse
+     every VEVENT in it.
   4. For each VEVENT, look up its UID in the target CalDAV calendar:
        - if found  -> overwrite the existing event (update)
        - if absent -> create a new event
@@ -72,6 +74,86 @@ def get_ics_attachments(msg):
             payload = part.get_payload(decode=True)
             if payload:
                 yield payload
+
+
+# Property lines the Power Automate flow's Compose steps can produce, in the
+# order they appear. Used by sanitize_ics_text() to tell a genuine property
+# line apart from a stray continuation line (see below).
+_KNOWN_ICS_PREFIXES = (
+    "BEGIN:",
+    "END:",
+    "VERSION:",
+    "PRODID:",
+    "METHOD:",
+    "UID:",
+    "DTSTAMP:",
+    "DTSTART",  # also matches "DTSTART;VALUE=DATE:" for all-day events
+    "DTEND",
+    "SUMMARY:",
+    "LOCATION:",
+    "TRANSP:",
+    "STATUS:",
+)
+
+# The two fields the flow fills from free-text Outlook data (event subject
+# and location), which is why they're the only ones that can contain a raw
+# comma, semicolon, backslash, or newline.
+_ESCAPED_ICS_FIELDS = ("SUMMARY:", "LOCATION:")
+
+
+def _escape_ics_text(value):
+    """Escape a raw TEXT value the way RFC 5545 (iCalendar) requires.
+
+    Order matters: backslashes must be doubled first, so the backslashes
+    this adds for ';', ',' and newlines aren't themselves re-escaped.
+    """
+    return (
+        value.replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\r\n", "\\n")
+        .replace("\n", "\\n")
+        .replace("\r", "\\n")
+    )
+
+
+def sanitize_ics_text(text):
+    """Repair and escape the .ics text the Power Automate flow sends.
+
+    The flow's Compose steps (see power-automate/expressions/compose-vevent.txt)
+    write SUMMARY and LOCATION straight from the event's subject and location,
+    with no escaping. RFC 5545 requires backslash, semicolon, comma, and any
+    line break in a TEXT value to be backslash-escaped. An unescaped line
+    break is the more serious of the two: it splits the value across
+    "content lines" that this parser can no longer tell apart from a genuine
+    property, so it's repaired first, then every TEXT value is escaped.
+
+    NOTE: this assumes the incoming text has no escaping of its own, which
+    matches the flow as documented. If the flow is ever changed to escape
+    these fields itself (see docs/1-power-automate.md), this function should
+    be removed rather than left in place, or it will double-escape.
+    """
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+
+    # Merge lines that aren't a recognized property back into the previous
+    # line -- these are subject/location text that happened to contain a
+    # raw newline, which the flow writes as an actual line break.
+    merged = []
+    for line in lines:
+        if not merged or line.startswith(_KNOWN_ICS_PREFIXES):
+            merged.append(line)
+        else:
+            merged[-1] += "\n" + line
+
+    repaired = []
+    for line in merged:
+        for prefix in _ESCAPED_ICS_FIELDS:
+            if line.startswith(prefix):
+                line = prefix + _escape_ics_text(line[len(prefix):])
+                break
+        repaired.append(line)
+
+    return "\r\n".join(repaired)
 
 
 def find_calendar(client, name):
@@ -167,7 +249,8 @@ def main():
         event_count = 0
         try:
             for ics_bytes in get_ics_attachments(msg):
-                cal = ICalCalendar.from_ical(ics_bytes)
+                ics_text = sanitize_ics_text(ics_bytes.decode("utf-8", errors="replace"))
+                cal = ICalCalendar.from_ical(ics_text)
                 for component in cal.walk("VEVENT"):
                     upsert_event(calendar, component)
                     event_count += 1

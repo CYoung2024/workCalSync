@@ -128,11 +128,6 @@ This builds one `VEVENT` block per calendar event:
 | `TRANSP` | `TRANSPARENT` when shown as *Free*, otherwise `OPAQUE` |
 | `STATUS` | `TENTATIVE` when shown as *Tentative*, otherwise `CONFIRMED` |
 
-> [!NOTE]
-> **TODO (separate PR):** `SUMMARY` and `LOCATION` are written as they are.
-> Commas, semicolons, backslashes and line breaks aren't escaped the way the
-> iCalendar format expects. Fastmail handles most titles fine.
-
 ### 4b. Append to array variable (inside the loop, after Compose)
 
 Add **Variables → Append to array variable**.

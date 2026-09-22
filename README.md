@@ -72,10 +72,5 @@ If something doesn't work, see **[Troubleshooting](docs/troubleshooting.md)**.
   employer's policy before you set it up. Your work tenant must allow flows to
   email external addresses; some tenants block this with
   data loss prevention (DLP) policies, and the flow will fail if yours does.
-- **TODO (separate PR): special characters aren't escaped.** The flow writes
-  event titles and locations into the `.ics` file as they are. The iCalendar
-  format expects commas, semicolons, backslashes and line breaks in those
-  fields to be escaped. Fastmail handles most titles fine, but an unusual one
-  could show up garbled.
 - Use a **dedicated Fastmail calendar** (for example, one called "Work") so
   synced events stay separate from your personal ones.
