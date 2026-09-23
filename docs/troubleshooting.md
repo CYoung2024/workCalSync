@@ -3,15 +3,21 @@
 ## Power Automate
 
 **"The template language function 'items' ... 'Apply_to_each_1' ... not found"**
-(or similar for `Compose` / `Compose_1`)
+(or similar for `Compose`, `Compose_1` or `Window_start`)
 : A step name doesn't match what the expression expects. Rename the loop to
-  exactly `Apply to each 1` and the Compose steps to `Compose` and `Compose 1`,
-  then paste the expressions again. See the step-name note in
-  [Step 1](1-power-automate.md).
+  exactly `Apply to each 1` and the Compose steps to `Window start`, `Compose`
+  and `Compose 1`, then paste the expressions again. See the step-name note in
+  [Step 1](1-weekly-flow.md).
 
 **Send an email fails with a policy / DLP / "blocked" error**
 : Your organisation doesn't allow flows to email external addresses. There's
   no workaround within this setup. Ask IT, or don't use this setup.
+
+**The change flow runs but its email has no events for an event that exists**
+: Open the trigger's output in the run history and check it has an `id`
+  field, and that the Filter array step uses
+  [`filter-array-changes.txt`](../power-automate/expressions/filter-array-changes.txt)
+  in advanced mode.
 
 **The `.ics` is all on one line, or Fastmail says it's invalid**
 : The multi-line Compose expressions were flattened when you pasted them. Copy
@@ -34,11 +40,12 @@
 
 **`No new matching mail found.`**
 : The workflow found no **unread** email in the **Inbox** whose subject
-  contains `WorkCalendarExport`. Check that:
+  contains `WorkCalendar`. Check that:
   - the email arrived and hasn't been opened. Mark it unread and run the
-    workflow again.
+    workflow again. Emails that already synced are moved to **Trash**; move
+    one back to the Inbox and mark it unread to sync it again.
   - a Fastmail rule or filter isn't moving it out of the Inbox or into spam.
-  - the flow's subject matches `IMAP_SUBJECT_FILTER`.
+  - both flows' subjects contain `IMAP_SUBJECT_FILTER`.
 
 **`Calendar 'Work' not found. Available calendars: ...`**
 : `CALENDAR_NAME` must exactly match one of the names listed, including
@@ -60,9 +67,12 @@
 
 ## Calendar contents
 
-**Cancelled meetings are still in Fastmail**
-: Known gap (TODO, planned for a separate PR). The sync only adds and updates events; it never
-  deletes them. Delete cancelled meetings in Fastmail by hand.
+**A deleted or declined meeting is still in Fastmail**
+: It's removed when the sync processes the change flow's email for it, or at
+  the latest after the Sunday snapshot. If it's still there after that,
+  check that the event has an `X-WORKCAL-ID` line in Fastmail. Events synced
+  before the flows added that line are never deleted automatically, so delete
+  those by hand.
 
 **Events show at the wrong time**
 : The flow writes all timed events in UTC (with a trailing `Z`), and Fastmail

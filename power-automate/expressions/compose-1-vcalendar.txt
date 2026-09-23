@@ -1,9 +1,0 @@
-concat(
-'BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Charles//WorkCalendarExport//EN
-METHOD:PUBLISH
-',
-join(variables('VEventList'), ''),
-'END:VCALENDAR'
-)

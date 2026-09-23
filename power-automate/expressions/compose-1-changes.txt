@@ -1,0 +1,14 @@
+concat(
+'BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Charles//WorkCalendarExport//EN
+METHOD:PUBLISH
+X-WORKCAL-SCOPE:ID
+X-WORKCAL-SCOPE-ID:', triggerOutputs()?['body/id'], '
+',
+'X-WORKCAL-WINDOW-START:', formatDateTime(outputs('Window_start'), 'yyyyMMddTHHmmss'), 'Z
+X-WORKCAL-WINDOW-END:', formatDateTime(addDays(outputs('Window_start'), 90), 'yyyyMMddTHHmmss'), 'Z
+',
+join(variables('VEventList'), ''),
+'END:VCALENDAR'
+)

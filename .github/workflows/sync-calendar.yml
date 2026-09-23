@@ -2,9 +2,11 @@ name: Sync Fastmail calendar from email
 
 on:
   schedule:
-    # Every 2 hours (UTC). The flow only sends an export every 6 hours, so this
-    # picks each one up within 2 hours. GitHub may delay runs under load; that's fine here.
-    - cron: "0 */2 * * *"
+    # Every 15 minutes. Fine on a public repo (unlimited Actions minutes). On a
+    # private repo this is ~2,900 runs a month, over the free plan's 2,000
+    # minutes, so change it to hourly: "0 * * * *".
+    # GitHub may delay runs under load; that's fine here.
+    - cron: "*/15 * * * *"
   workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
 
 jobs:
@@ -25,6 +27,7 @@ jobs:
           FASTMAIL_EMAIL: ${{ secrets.FASTMAIL_EMAIL }}
           FASTMAIL_APP_PASSWORD: ${{ secrets.FASTMAIL_APP_PASSWORD }}
           # Optional overrides — uncomment and edit as needed:
-          # IMAP_SUBJECT_FILTER: "WorkCalendarExport"
+          # IMAP_SUBJECT_FILTER: "WorkCalendar"
           # CALENDAR_NAME: "Work"
+          # DELETE_PROCESSED_EMAILS: "false"   # keep synced emails in the Inbox
         run: python sync_calendar.py
