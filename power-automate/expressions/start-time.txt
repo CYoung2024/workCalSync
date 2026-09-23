@@ -1,1 +1,1 @@
-formatDateTime(outputs('Window_start'), 'yyyy-MM-ddTHH:mm:ssZ')
+formatDateTime(variables('WindowStart'), 'yyyy-MM-ddTHH:mm:ssZ')

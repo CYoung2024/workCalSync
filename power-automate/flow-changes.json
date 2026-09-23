@@ -29,8 +29,16 @@
     },
     "actions": {
       "Window_start": {
-        "type": "Compose",
-        "inputs": "@utcNow()",
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "WindowStart",
+              "type": "string",
+              "value": "@utcNow()"
+            }
+          ]
+        },
         "runAfter": {}
       },
       "Get_calendar_view_of_events_(V3)": {
@@ -38,8 +46,8 @@
         "inputs": {
           "parameters": {
             "calendarId": "Redacted= (pick 'Calendar' from the dropdown; the ID is unique to each mailbox)",
-            "startDateTimeUtc": "@formatDateTime(outputs('Window_start'), 'yyyy-MM-ddTHH:mm:ssZ')",
-            "endDateTimeUtc": "@formatDateTime(addDays(outputs('Window_start'), 90), 'yyyy-MM-ddTHH:mm:ssZ')"
+            "startDateTimeUtc": "@formatDateTime(variables('WindowStart'), 'yyyy-MM-ddTHH:mm:ssZ')",
+            "endDateTimeUtc": "@formatDateTime(addDays(variables('WindowStart'), 90), 'yyyy-MM-ddTHH:mm:ssZ')"
           },
           "host": {
             "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
@@ -110,7 +118,7 @@
       },
       "Compose_1": {
         "type": "Compose",
-        "inputs": "@concat(\r\n'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Charles//WorkCalendarExport//EN\r\nMETHOD:PUBLISH\r\nX-WORKCAL-SCOPE:ID\r\nX-WORKCAL-SCOPE-ID:', triggerOutputs()?['body/id'], '\r\n',\r\n'X-WORKCAL-WINDOW-START:', formatDateTime(outputs('Window_start'), 'yyyyMMddTHHmmss'), 'Z\r\nX-WORKCAL-WINDOW-END:', formatDateTime(addDays(outputs('Window_start'), 90), 'yyyyMMddTHHmmss'), 'Z\r\n',\r\njoin(variables('VEventList'), ''),\r\n'END:VCALENDAR'\r\n)",
+        "inputs": "@concat(\r\n'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Charles//WorkCalendarExport//EN\r\nMETHOD:PUBLISH\r\nX-WORKCAL-SCOPE:ID\r\nX-WORKCAL-SCOPE-ID:', triggerOutputs()?['body/id'], '\r\n',\r\n'X-WORKCAL-WINDOW-START:', formatDateTime(variables('WindowStart'), 'yyyyMMddTHHmmss'), 'Z\r\nX-WORKCAL-WINDOW-END:', formatDateTime(addDays(variables('WindowStart'), 90), 'yyyyMMddTHHmmss'), 'Z\r\n',\r\njoin(variables('VEventList'), ''),\r\n'END:VCALENDAR'\r\n)",
         "runAfter": {
           "Apply_to_each_1": [
             "Succeeded"

@@ -3,10 +3,12 @@
 ## Power Automate
 
 **"The template language function 'items' ... 'Apply_to_each_1' ... not found"**
-(or similar for `Compose`, `Compose_1` or `Window_start`)
+(or similar for `Compose` or `Compose_1`)
 : A step name doesn't match what the expression expects. Rename the loop to
-  exactly `Apply to each 1` and the Compose steps to `Window start`, `Compose`
-  and `Compose 1`, then paste the expressions again. See the step-name note in
+  exactly `Apply to each 1` and the Compose steps to `Compose` and
+  `Compose 1`, then paste the expressions again. An error naming
+  `WindowStart` means the Window start variable is missing or named
+  differently. See the step-name note in
   [Step 1](1-weekly-flow.md).
 
 **Send an email fails with a policy / DLP / "blocked" error**

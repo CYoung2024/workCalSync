@@ -28,7 +28,7 @@ Compose and email subject.
 | # | Step | Connector |
 | --- | --- | --- |
 | 1 | When an event is added, updated or deleted (V3) | Office 365 Outlook |
-| 2 | Window start | Data Operations (Compose) |
+| 2 | Window start | Variables (Initialize variable) |
 | 3 | Get calendar view of events (V3) | Office 365 Outlook |
 | 4 | Filter array | Data Operations |
 | 5 | Initialize variable | Variables |
@@ -38,8 +38,9 @@ Compose and email subject.
 | 7 | Compose 1 | Data Operations |
 | 8 | Send an email (V2) | Office 365 Outlook |
 
-The same step-name rule applies: `Window start`, `Apply to each 1`,
-`Compose`, `Compose 1`, and `Filter array` must keep those exact names.
+The same step-name rule applies: `Apply to each 1`, `Compose`, `Compose 1`,
+and `Filter array` must keep those exact names, and the variables must be
+named `WindowStart` and `VEventList`.
 
 ---
 
@@ -57,8 +58,8 @@ time, so their emails arrive in the order the changes happened.
 
 ## 2. Window start
 
-Same as the weekly flow: **Data Operations → Compose**, renamed `Window
-start`, with Inputs = [`window-start.txt`](../power-automate/expressions/window-start.txt).
+Same as the weekly flow: **Variables → Initialize variable**, Name
+`WindowStart`, Type `String`, Value = [`window-start.txt`](../power-automate/expressions/window-start.txt).
 
 ## 3. Get calendar view of events (V3)
 

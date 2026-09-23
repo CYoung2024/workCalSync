@@ -17,7 +17,7 @@ table below for the current step list.*
 | # | Step | Connector |
 | --- | --- | --- |
 | 1 | Recurrence | Schedule |
-| 2 | Window start | Data Operations (Compose) |
+| 2 | Window start | Variables (Initialize variable) |
 | 3 | Get calendar view of events (V3) | Office 365 Outlook |
 | 4 | Initialize variable | Variables |
 | 5 | Apply to each 1 | Control |
@@ -28,7 +28,7 @@ table below for the current step list.*
 
 > [!IMPORTANT]
 > **Step names matter.** The expressions refer to other steps by name:
-> `Window_start`, `Apply_to_each_1`, `Compose`, `Compose_1`, and
+> `Apply_to_each_1`, `Compose`, `Compose_1`, and
 > `Get_calendar_view_of_events_(V3)`. Power Automate turns spaces into
 > underscores, so the loop must be called exactly **Apply to each 1**, and so
 > on. If the designer gives a step a different name (for example, just
@@ -71,14 +71,18 @@ Frequency is set to Week. Leave Start time empty.
 
 ## 2. Window start
 
-Add **Data Operations → Compose** and rename it to `Window start`.
+Add **Variables → Initialize variable** and rename the step to `Window start`
+(optional, but it keeps it distinct from the `VEventList` one in step 4).
 
 | Field | Value |
 | --- | --- |
-| Inputs | expression: [`window-start.txt`](../power-automate/expressions/window-start.txt) |
+| Name | `WindowStart` |
+| Type | `String` |
+| Value | expression: [`window-start.txt`](../power-automate/expressions/window-start.txt) |
 
 This records the current time once, so the calendar query and the `.ics`
-file both use the same 90-day window.
+file both use the same 90-day window. The later expressions read it as
+`variables('WindowStart')`, so the variable name must match exactly.
 
 ## 3. Get calendar view of events (V3)
 
