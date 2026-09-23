@@ -5,8 +5,8 @@ PRODID:-//Charles//WorkCalendarExport//EN
 METHOD:PUBLISH
 X-WORKCAL-SCOPE:SNAPSHOT
 ',
-'X-WORKCAL-WINDOW-START:', formatDateTime(outputs('Window_start'), 'yyyyMMddTHHmmss'), 'Z
-X-WORKCAL-WINDOW-END:', formatDateTime(addDays(outputs('Window_start'), 90), 'yyyyMMddTHHmmss'), 'Z
+'X-WORKCAL-WINDOW-START:', formatDateTime(variables('WindowStart'), 'yyyyMMddTHHmmss'), 'Z
+X-WORKCAL-WINDOW-END:', formatDateTime(addDays(variables('WindowStart'), 90), 'yyyyMMddTHHmmss'), 'Z
 ',
 join(variables('VEventList'), ''),
 'END:VCALENDAR'
